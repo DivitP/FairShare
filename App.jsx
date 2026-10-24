@@ -1,12 +1,21 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Signup from './Signup'
+import Login from './Login'
 
 export default function App() {
+  const [page, setPage] = React.useState('login')
+
   return (
-    <div>
-      <Signup />
-    </div>
+    <main>
+      <h1>FairShare</h1>
+      {page === 'login' ? <Login /> : <Signup />}
+      <p>
+        <button type="button" onClick={() => setPage(page === 'login' ? 'signup' : 'login')}>
+          {page === 'login' ? 'Create an account' : 'Back to login'}
+        </button>
+      </p>
+    </main>
   )
 }
 
