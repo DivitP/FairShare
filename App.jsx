@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Signup from './Signup'
 import Login from './Login'
+import './styles.css'
 
 export default function App() {
   const [page, setPage] = React.useState('login')

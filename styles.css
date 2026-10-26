@@ -8,28 +8,29 @@ body {
 }
 
 #root {
-  box-sizing: border-box;
-  width: min(360px, 90vw);
+  width: 320px;
   padding: 24px;
   background: white;
   border-radius: 8px;
 }
 
-label { display: block; }
+h1 {
+  text-align: center;
+  color: #105e4b;
+}
 
 input {
   box-sizing: border-box;
   width: 100%;
-  padding: 10px;
-  margin: 6px 0 16px;
+  padding: 8px;
+  margin: 4px 0 12px;
 }
 
 button {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   background: #105e4b;
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
 }
