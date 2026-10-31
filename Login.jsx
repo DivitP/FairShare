@@ -1,12 +1,31 @@
 import { useState } from 'react'
 
 export default function Login({ onCreateAccount }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
 
-  function handleLogin(event) {
+  const handleLogin = async (event) => {
     event.preventDefault()
-    // Connect to the login API when it is made.
-    setMessage('Login is not connected yet.')
+
+    // Connect to backend API for login
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+
+      const data = await response.json()
+      setMessage(data.message)
+
+      if (response.ok) {
+        console.log('Logged in user:', data.username)
+      }
+    } catch (error) {
+      console.error('Connection error:', error)
+      setMessage('Failed to connect to the server.')
+    }
   }
 
   return (
@@ -17,14 +36,16 @@ export default function Login({ onCreateAccount }) {
 
       <form className="login-form" onSubmit={handleLogin}>
         <div className="login-field">
-          <label htmlFor="login-email">Email address</label>
+          <label htmlFor="login-username">Username</label>
           <input
-            id="login-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
+            id="login-username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder="Enter your username"
             required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </div>
         <div className="login-field">
@@ -36,6 +57,8 @@ export default function Login({ onCreateAccount }) {
             autoComplete="current-password"
             placeholder="Enter your password"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
         <button className="login-submit" type="submit">
