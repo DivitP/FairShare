@@ -12,11 +12,7 @@ export default function Login({ onCreateAccount }) {
   return (
     <section className="login-panel" aria-labelledby="login-heading">
       <header className="login-header">
-        <p className="login-eyebrow">Welcome to FairShare</p>
         <h1 id="login-heading">Welcome back.</h1>
-        <p className="login-description">
-          Split expenses. Stay on the same page.
-        </p>
       </header>
 
       <form className="login-form" onSubmit={handleLogin}>
@@ -62,7 +58,6 @@ export default function Login({ onCreateAccount }) {
       </form>
 
       <p className="login-account">
-        New around here?{' '}
         <button type="button" onClick={onCreateAccount}>
           Create an account
         </button>
