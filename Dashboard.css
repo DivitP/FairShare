@@ -1,0 +1,107 @@
+.dashboard-page {
+  --dashboard-blue: #3268c8;
+  --dashboard-navy: #233e68;
+  --dashboard-background: #f5f6f9;
+  --dashboard-surface: #ffffff;
+  --dashboard-text: #283140;
+  --dashboard-muted: #7b8595;
+  --dashboard-border: #e3e7ed;
+  --dashboard-sidebar-width: 240px;
+  --dashboard-content-spacing: 32px;
+
+  display: grid;
+  grid-template-columns: var(--dashboard-sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100svh;
+  background: var(--dashboard-background);
+  color: var(--dashboard-text);
+  font-family: 'DM Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dashboard-page .dashboard-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px 24px;
+  background: var(--dashboard-surface);
+  border-right: 1px solid var(--dashboard-border);
+}
+
+.dashboard-page .dashboard-sidebar-placeholder {
+  color: var(--dashboard-navy);
+  font-weight: 600;
+}
+
+.dashboard-page .dashboard-login-link {
+  align-self: flex-start;
+  margin-top: auto;
+  color: var(--dashboard-blue);
+  text-underline-offset: 4px;
+}
+
+.dashboard-page a:focus-visible {
+  outline: 3px solid #94b5ef;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.dashboard-page .dashboard-main { min-width: 0; }
+
+.dashboard-page .dashboard-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 72px;
+  padding: 20px var(--dashboard-content-spacing);
+  background: var(--dashboard-surface);
+  border-bottom: 1px solid var(--dashboard-border);
+}
+
+.dashboard-page .dashboard-preview-label {
+  color: var(--dashboard-muted);
+  font-size: 12px;
+}
+
+.dashboard-page .dashboard-content {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: var(--dashboard-content-spacing);
+}
+
+.dashboard-page h1 {
+  margin: 0;
+  font-family: 'Manrope', Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.25;
+}
+
+.dashboard-page .dashboard-description {
+  margin: 12px 0 0;
+  color: var(--dashboard-muted);
+}
+
+@media (max-width: 640px) {
+  .dashboard-page {
+    --dashboard-content-spacing: 24px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-page .dashboard-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--dashboard-border);
+  }
+
+  .dashboard-page .dashboard-login-link { margin-top: 0; }
+}
