@@ -1,4 +1,7 @@
 import './Dashboard.css'
+import DashboardIcon from './DashboardIcon'
+import SummaryCard from './SummaryCard'
+import { dashboardPreview, formatUSD } from './dashboardPreviewData'
 
 const navigationItems = [
   { label: 'Overview', icon: 'overview' },
@@ -8,26 +11,6 @@ const navigationItems = [
   { label: 'Insights', icon: 'insights' },
   { label: 'Activity', icon: 'activity' },
 ]
-
-function SidebarIcon({ name }) {
-  const paths = {
-    overview: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
-    expenses: 'M5 3h14v18l-3-2-4 2-4-2-3 2z M8 7h8 M8 11h8 M8 15h4',
-    balances: 'M3 6h16v14H3z M3 6V3h13v3 M15 11h6v5h-6z',
-    upcoming: 'M4 5h16v16H4z M8 2v6 M16 2v6 M4 11h16',
-    insights: 'M4 20V10 M10 20V4 M16 20v-7 M22 20V7',
-    activity: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4',
-    home: 'M3 10l9-7 9 7v11H3z M9 21v-8h6v8',
-  }
-
-  return (
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d={paths[name]} />
-    </svg>
-  )
-}
 
 export default function Dashboard() {
   return (
@@ -44,7 +27,7 @@ export default function Dashboard() {
         <section className="dashboard-workspace" aria-labelledby="workspace-label">
           <h2 className="dashboard-section-label" id="workspace-label">Your workspace</h2>
           <div className="dashboard-household">
-            <span className="dashboard-household-icon"><SidebarIcon name="home" /></span>
+            <span className="dashboard-household-icon"><DashboardIcon name="home" /></span>
             <div className="dashboard-household-copy">
               <strong title="Dorm 777">Dorm 777</strong>
               <span>3 roommates · USD</span>
@@ -57,12 +40,12 @@ export default function Dashboard() {
             label === 'Overview' ? (
               <a className="dashboard-nav-item dashboard-nav-active" href="/dashboard"
                 aria-current="page" key={label}>
-                <SidebarIcon name={icon} /><span>{label}</span>
+                <DashboardIcon name={icon} /><span>{label}</span>
               </a>
             ) : (
               <button className="dashboard-nav-item" type="button" key={label}
                 disabled aria-describedby="dashboard-navigation-note">
-                <SidebarIcon name={icon} /><span>{label}</span>
+                <DashboardIcon name={icon} /><span>{label}</span>
                 <span className="dashboard-soon">Soon</span>
               </button>
             )
@@ -89,15 +72,67 @@ export default function Dashboard() {
 
       <main className="dashboard-main" aria-labelledby="dashboard-heading">
         <header className="dashboard-topbar">
-          <span>Overview</span>
-          <span className="dashboard-preview-label">Frontend preview</span>
+          <nav className="dashboard-breadcrumb" aria-label="Breadcrumb">
+            <span>Dorm 777</span>
+            <DashboardIcon name="chevron" />
+            <span aria-current="page">Overview</span>
+          </nav>
+          <span className="dashboard-preview-label"><span className="dashboard-status-dot" aria-hidden="true" />Demo data</span>
         </header>
 
         <div className="dashboard-content">
-          <h1 id="dashboard-heading">Dashboard</h1>
-          <p className="dashboard-description">
-            Expenses dashboard cards here.
-          </p>
+          <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
+            <div>
+              <p className="dashboard-eyebrow">Split fairly</p>
+              <h1 id="dashboard-heading">Hey {dashboardPreview.firstName}, welcome home.</h1>
+              <p className="dashboard-description">Here’s where things stand with your group.</p>
+            </div>
+            <div className="dashboard-actions">
+              <button className="dashboard-action" type="button" disabled aria-describedby="dashboard-actions-note">
+                <DashboardIcon name="balances" />Settle up
+              </button>
+              <button className="dashboard-action dashboard-action-primary" type="button" disabled aria-describedby="dashboard-actions-note">
+                <DashboardIcon name="plus" />Add expense
+              </button>
+              <span className="dashboard-actions-note" id="dashboard-actions-note">Expense and payment actions coming soon.</span>
+            </div>
+          </section>
+
+          <section className="dashboard-summary-grid" aria-label="Balance summaries">
+            <SummaryCard label="Your total balance" amount={dashboardPreview.balance}
+              description="You’re owed overall" icon="balances" variant="navy" />
+            <SummaryCard label="You are owed" amount={dashboardPreview.owed}
+              description="A little something coming back" icon="up" variant="blue" />
+            <SummaryCard label="You owe" amount={dashboardPreview.owing}
+              description="You’re all settled up" icon="arrow" />
+            <SummaryCard label="Your total share" amount={dashboardPreview.totalShare}
+              description="Across all household expenses" icon="insights" />
+          </section>
+
+          <section className="dashboard-expenses" aria-labelledby="recent-expenses-heading">
+            <div className="dashboard-expenses-header">
+              <h2 id="recent-expenses-heading">Recent expenses <span className="dashboard-expense-count">{dashboardPreview.expenses.length}</span></h2>
+              <button className="dashboard-view-all" type="button" disabled aria-label="View all expenses (coming soon)">
+                View all<DashboardIcon name="arrow" /><span className="dashboard-soon">Soon</span>
+              </button>
+            </div>
+            <ul className="dashboard-expense-list">
+              {dashboardPreview.expenses.map(expense => (
+                <li className="dashboard-expense-row" key={expense.id}>
+                  <span className={`dashboard-category-icon dashboard-category-${expense.icon}`}><DashboardIcon name={expense.icon} /></span>
+                  <div className="dashboard-expense-copy">
+                    <h3>{expense.description}</h3>
+                    <p>{expense.payer} paid {formatUSD(expense.total)} <span aria-hidden="true">·</span> {expense.category}</p>
+                  </div>
+                  <span className="dashboard-expense-date">{expense.dateLabel}</span>
+                  <div className={`dashboard-expense-share${expense.direction === 'lent' ? ' dashboard-share-lent' : ''}`}>
+                    <span>you {expense.direction}</span>
+                    <strong>{formatUSD(expense.userAmount)}</strong>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
       </main>
     </div>
