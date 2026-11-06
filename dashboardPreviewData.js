@@ -1,5 +1,3 @@
-// Temporary display fixtures for Dorm 777's three roommates.
-// Amounts are USD cents; replace this data with real records later.
 export const dashboardPreview = {
   firstName: '[name]',
   balance: 5300,
