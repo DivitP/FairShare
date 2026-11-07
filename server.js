@@ -1,6 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const { Pool } = require('pg')
+const crypto = require('crypto');
 
 const app = express()
 app.use(cors())
@@ -44,6 +45,18 @@ await pool.query(`
 }
 initDB().catch(console.error);
 
+function createInviteCode(){
+  const possibleChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const codelength = 6;
+  let code = '';
+  for (let i = 0; i < codelength; i++)
+  {
+    const index = crypto.randomInt(possibleChars.length)
+    code += possibleChars[index]
+  }
+  return code; 
+}
+
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body
 
@@ -86,6 +99,38 @@ app.post('/api/expenses', async (req, res) => {
     res.status(500).json({ success: false, message: 'Database error' })
   }
 })
+
+app.post('/api/groups', async (req, res) => {
+ const {name, username} = req.body
+
+  try {
+    const {rows} = await pool.query(
+      `INSERT INTO roommate_groups (name, invite_code, created_by)
+       SELECT $1, $2, id FROM users WHERE username = $3
+       RETURNING id, name, invite_code, created_by`,
+      [name, createInviteCode(), username]
+    )
+    const group = rows[0];
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    await pool.query(
+      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
+      [group.id, group.created_by]
+    )
+
+    res.json({
+      success: true,
+      group: { id: group.id, name: group.name, invite_code: group.invite_code }
+    })
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database error' })
+  }
+}
+)
+
+
+
 
 const PORT = process.env.PORT || 5001
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
