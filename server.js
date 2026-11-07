@@ -10,7 +10,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/fairshare'
 })
 
-pool.query(`
+
+
+async function initDB(){
+await pool.query(`
   CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username TEXT UNIQUE,
@@ -18,8 +21,8 @@ pool.query(`
   )
 `)
 
-pool.query(`
-  CREATE TABLE IF NOT EXISTS expenses (
+await pool.query(`
+CREATE TABLE IF NOT EXISTS expenses (
     id SERIAL PRIMARY KEY,
     description TEXT,
     amount INTEGER,
@@ -27,6 +30,19 @@ pool.query(`
     payer TEXT
   )
 `)
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS roommate_groups (
+  id SERIAL PRIMARY KEY, 
+  name TEXT NOT NULL, 
+  invite_code TEXT UNIQUE NOT NULL, 
+  created_by INTEGER REFERENCES users(id))`)
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS group_members (
+  group_id INTEGER REFERENCES roommate_groups(id) ON DELETE CASCADE, 
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, 
+  PRIMARY KEY (group_id, user_id))`)
+}
+initDB().catch(console.error);
 
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body
