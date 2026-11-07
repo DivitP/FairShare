@@ -164,7 +164,11 @@
 .dashboard-page .dashboard-login-link {
   align-self: flex-start;
   margin-top: auto;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--dashboard-blue);
+  text-decoration: underline;
   text-underline-offset: 4px;
 }
 

@@ -12,7 +12,7 @@ const navigationItems = [
   { label: 'Activity', icon: 'activity' },
 ]
 
-export default function Dashboard() {
+export default function Dashboard({ username, onLogout }) {
   return (
     <div className="dashboard-page">
       <aside className="dashboard-sidebar" aria-label="Dashboard sidebar">
@@ -67,7 +67,7 @@ export default function Dashboard() {
             <span className="dashboard-sample-label">Sample</span>
           </div>
         </section>
-        <a className="dashboard-login-link" href="/">Back to sign in</a>
+        <button className="dashboard-login-link" type="button" onClick={onLogout}>Log out</button>
       </aside>
 
       <main className="dashboard-main" aria-labelledby="dashboard-heading">
@@ -77,14 +77,14 @@ export default function Dashboard() {
             <DashboardIcon name="chevron" />
             <span aria-current="page">Overview</span>
           </nav>
-          <span className="dashboard-preview-label"><span className="dashboard-status-dot" aria-hidden="true" />Demo data</span>
+          <span className="dashboard-preview-label"><span className="dashboard-status-dot" aria-hidden="true" />{username}</span>
         </header>
 
         <div className="dashboard-content">
           <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
             <div>
               <p className="dashboard-eyebrow">Split fairly</p>
-              <h1 id="dashboard-heading">Hey {dashboardPreview.firstName}, welcome home.</h1>
+              <h1 id="dashboard-heading">Hey {username}, welcome home.</h1>
               <p className="dashboard-description">Here’s where things stand with your group.</p>
             </div>
             <div className="dashboard-actions">

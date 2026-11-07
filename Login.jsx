@@ -20,6 +20,7 @@ export default function Login({ onCreateAccount, initialMessage = '' }) {
       setMessage(data.message)
 
       if (response.ok && data.success) {
+        sessionStorage.setItem('fairshare.username', data.username)
         window.location.assign('/dashboard')
       }
     } catch (error) {

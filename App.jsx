@@ -8,9 +8,18 @@ import './styles.css'
 export default function App() {
   const [page, setPage] = React.useState('login')
   const [loginNotice, setLoginNotice] = React.useState('')
+  const [username, setUsername] = React.useState(() => sessionStorage.getItem('fairshare.username'))
 
   if (window.location.pathname.replace(/\/+$/, '') === '/dashboard') {
-    return <Dashboard />
+    if (username) {
+      return <Dashboard username={username} onLogout={() => {
+        sessionStorage.removeItem('fairshare.username')
+        setUsername(null)
+        setPage('login')
+        setLoginNotice('You have been logged out.')
+        window.history.replaceState(null, '', '/')
+      }} />
+    }
   }
 
   return (
