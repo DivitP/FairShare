@@ -7,6 +7,7 @@ import './styles.css'
 
 export default function App() {
   const [page, setPage] = React.useState('login')
+  const [loginNotice, setLoginNotice] = React.useState('')
 
   if (window.location.pathname.replace(/\/+$/, '') === '/dashboard') {
     return <Dashboard />
@@ -15,11 +16,20 @@ export default function App() {
   return (
     <main className="auth-page">
       {page === 'login' ? (
-        <Login onCreateAccount={() => setPage('signup')} />
+        <Login
+          initialMessage={loginNotice}
+          onCreateAccount={() => {
+            setLoginNotice('')
+            setPage('signup')
+          }}
+        />
       ) : (
         <section className="signup-panel" aria-label="Create a FairShare account">
           <h1>FairShare</h1>
-          <Signup />
+          <Signup onSuccess={() => {
+            setLoginNotice('Account created. Please sign in.')
+            setPage('login')
+          }} />
           <button className="back-to-login" type="button" onClick={() => setPage('login')}>
             Back to sign in
           </button>

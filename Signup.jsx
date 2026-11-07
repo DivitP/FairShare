@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function Signup() {
+export default function Signup({ onSuccess }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -17,9 +17,8 @@ export default function Signup() {
     const data = await response.json()
     setMessage(data.message)
 
-    if (data.success) {
-      setUsername('')
-      setPassword('')
+    if (response.ok && data.success) {
+      onSuccess()
     }
   }
 

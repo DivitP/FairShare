@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
-export default function Login({ onCreateAccount }) {
+export default function Login({ onCreateAccount, initialMessage = '' }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(initialMessage)
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -19,8 +19,8 @@ export default function Login({ onCreateAccount }) {
       const data = await response.json()
       setMessage(data.message)
 
-      if (response.ok) {
-        console.log('Logged in user:', data.username)
+      if (response.ok && data.success) {
+        window.location.assign('/dashboard')
       }
     } catch (error) {
       console.error('Connection error:', error)
