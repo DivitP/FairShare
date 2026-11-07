@@ -2,10 +2,15 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Signup from './Signup'
 import Login from './Login'
+import Dashboard from './Dashboard'
 import './styles.css'
 
 export default function App() {
   const [page, setPage] = React.useState('login')
+
+  if (window.location.pathname.replace(/\/+$/, '') === '/dashboard') {
+    return <Dashboard />
+  }
 
   return (
     <main className="auth-page">
