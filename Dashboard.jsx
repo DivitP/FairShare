@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './Dashboard.css'
 import DashboardIcon from './DashboardIcon'
 import SummaryCard from './SummaryCard'
@@ -13,6 +14,40 @@ const navigationItems = [
 ]
 
 export default function Dashboard() {
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
+  const [error, setError] = useState('')
+  const [expenses, setExpenses] = useState(dashboardPreview.expenses)
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault()
+    const cents = Math.round(Number(form.amount) * 100)
+    if (!form.description || !form.payer || !form.category || isNaN(cents) || cents <= 0) {
+      return setError('Please fill in all fields with a valid amount.')
+    }
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    })
+    const data = await res.json()
+    if (!res.ok) return setError(data.message || 'Error saving expense')
+    const item = {
+      id: `exp-${Date.now()}`,
+      description: form.description,
+      payer: form.payer,
+      total: cents,
+      category: form.category,
+      icon: form.category.toLowerCase(),
+      dateLabel: 'Today',
+      direction: form.payer.toLowerCase() === 'you' ? 'lent' : 'borrowed',
+      userAmount: Math.round(cents / 3)
+    }
+    setExpenses([item, ...expenses])
+    setShowAdd(false)
+    setForm({ description: '', amount: '', category: 'Groceries', payer: '' })
+    setError('')
+  }
   return (
     <div className="dashboard-page">
       <aside className="dashboard-sidebar" aria-label="Dashboard sidebar">
@@ -91,10 +126,10 @@ export default function Dashboard() {
               <button className="dashboard-action" type="button" disabled aria-describedby="dashboard-actions-note">
                 <DashboardIcon name="balances" />Settle up
               </button>
-              <button className="dashboard-action dashboard-action-primary" type="button" disabled aria-describedby="dashboard-actions-note">
+              <button className="dashboard-action dashboard-action-primary" type="button" onClick={() => setShowAdd(true)}>
                 <DashboardIcon name="plus" />Add expense
               </button>
-              <span className="dashboard-actions-note" id="dashboard-actions-note">Expense and payment actions coming soon.</span>
+              <span className="dashboard-actions-note" id="dashboard-actions-note">Settle up coming soon.</span>
             </div>
           </section>
 
@@ -111,13 +146,13 @@ export default function Dashboard() {
 
           <section className="dashboard-expenses" aria-labelledby="recent-expenses-heading">
             <div className="dashboard-expenses-header">
-              <h2 id="recent-expenses-heading">Recent expenses <span className="dashboard-expense-count">{dashboardPreview.expenses.length}</span></h2>
+              <h2 id="recent-expenses-heading">Recent expenses <span className="dashboard-expense-count">{expenses.length}</span></h2>
               <button className="dashboard-view-all" type="button" disabled aria-label="View all expenses (coming soon)">
                 View all<DashboardIcon name="arrow" /><span className="dashboard-soon">Soon</span>
               </button>
             </div>
             <ul className="dashboard-expense-list">
-              {dashboardPreview.expenses.map(expense => (
+              {expenses.map(expense => (
                 <li className="dashboard-expense-row" key={expense.id}>
                   <span className={`dashboard-category-icon dashboard-category-${expense.icon}`}><DashboardIcon name={expense.icon} /></span>
                   <div className="dashboard-expense-copy">
@@ -135,6 +170,30 @@ export default function Dashboard() {
           </section>
         </div>
       </main>
+
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: 0 }}>Add Expense</h3>
+            {error && <p className="modal-error">{error}</p>}
+            <form onSubmit={handleAddExpense}>
+              <input placeholder="Description" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+              <input type="number" step="0.01" min="0.01" placeholder="Amount ($)" required value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                <option value="Groceries">Groceries</option>
+                <option value="Utilities">Utilities</option>
+                <option value="Dining">Dining</option>
+                <option value="Household">Household</option>
+              </select>
+              <input placeholder="Payer (e.g. You)" required value={form.payer} onChange={e => setForm({ ...form, payer: e.target.value })} />
+              <div className="modal-actions">
+                <button className="dashboard-action" type="button" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button className="dashboard-action dashboard-action-primary" type="submit">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
