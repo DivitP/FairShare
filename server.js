@@ -18,6 +18,16 @@ pool.query(`
   )
 `)
 
+pool.query(`
+  CREATE TABLE IF NOT EXISTS expenses (
+    id SERIAL PRIMARY KEY,
+    description TEXT,
+    amount INTEGER,
+    category TEXT,
+    payer TEXT
+  )
+`)
+
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body
 
@@ -42,6 +52,23 @@ app.post('/api/login', async (req, res) => {
   }
 
   res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
+})
+
+app.post('/api/expenses', async (req, res) => {
+  const { description, amount, category, payer } = req.body
+  const cents = Math.round(Number(amount) * 100)
+  if (!description || !category || !payer || isNaN(cents) || cents <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid or missing expense details' })
+  }
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO expenses (description, amount, category, payer) VALUES ($1, $2, $3, $4) RETURNING *',
+      [description.trim(), cents, category, payer.trim()]
+    )
+    res.json({ success: true, expense: rows[0] })
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database error' })
+  }
 })
 
 const PORT = process.env.PORT || 5001
