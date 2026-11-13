@@ -4,6 +4,8 @@ const { Pool } = require('pg')
 
 const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
 
+const { initializeSessions, issueSession, registerSessionRoutes } = require('./sessions')
+
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -11,6 +13,8 @@ app.use(express.json())
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/fairshare'
 })
+
+registerSessionRoutes(app, pool)
 
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body || {}
@@ -36,7 +40,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid username or password' })
   }
   const { rows } = await pool.query(
-    'SELECT username, password_hash FROM users WHERE username = $1',
+    'SELECT id, username, password_hash FROM users WHERE username = $1',
     [username]
   )
 
@@ -44,6 +48,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid username or password' })
   }
 
+  await issueSession(pool, req, res, rows[0].id)
   res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
 })
 
@@ -67,6 +72,7 @@ app.post('/api/expenses', async (req, res) => {
 const PORT = process.env.PORT || 5001
 async function start() {
   await initializeUsers(pool)
+  await initializeSessions(pool)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS expenses (
       id SERIAL PRIMARY KEY,
