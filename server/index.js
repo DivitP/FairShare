@@ -2,6 +2,8 @@ const express = require('express')
 const cors = require('cors')
 const { Pool } = require('pg')
 
+const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
+
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -10,44 +12,35 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/fairshare'
 })
 
-pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE,
-    password TEXT
-  )
-`)
-
-pool.query(`
-  CREATE TABLE IF NOT EXISTS expenses (
-    id SERIAL PRIMARY KEY,
-    description TEXT,
-    amount INTEGER,
-    category TEXT,
-    payer TEXT
-  )
-`)
-
 app.post('/api/signup', async (req, res) => {
-  const { username, password } = req.body
+  const { username, password } = req.body || {}
+
+  if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password.length) {
+    return res.status(400).json({ success: false, message: 'Username and password are required' })
+  }
 
   try {
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password])
+    const hash = await hashPassword(password)
+    await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, hash])
     res.json({ success: true, message: 'Account created successfully!' })
   } catch (err) {
-    res.status(400).json({ success: false, message: 'Username already taken' })
+    if (err.code === '23505') return res.status(400).json({ success: false, message: 'Username already taken' })
+    res.status(500).json({ success: false, message: 'Could not create account' })
   }
 })
 
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body
+  const { username, password } = req.body || {}
 
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ success: false, message: 'Invalid username or password' })
+  }
   const { rows } = await pool.query(
-    'SELECT * FROM users WHERE username = $1 AND password = $2',
-    [username, password]
+    'SELECT username, password_hash FROM users WHERE username = $1',
+    [username]
   )
 
-  if (rows.length === 0) {
+  if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) {
     return res.status(400).json({ success: false, message: 'Invalid username or password' })
   }
 
@@ -72,4 +65,22 @@ app.post('/api/expenses', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 5001
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+async function start() {
+  await initializeUsers(pool)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id SERIAL PRIMARY KEY,
+      description TEXT,
+      amount INTEGER,
+      category TEXT,
+      payer TEXT
+    )
+  `)
+  app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+}
+
+start().catch(async err => {
+  console.error('Database initialization failed:', err.code || err.name)
+  await pool.end()
+  process.exitCode = 1
+})
