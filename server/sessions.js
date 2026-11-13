@@ -24,15 +24,22 @@ async function issueSession(pool, req, res, userId) {
   res.cookie(cookieName, token, { ...cookieOptions, maxAge: 86400000 })
 }
 
-function registerSessionRoutes(app, pool) {
-  app.get('/api/session', async (req, res) => {
+function requireSession(pool) {
+  return async (req, res, next) => {
     res.set('Cache-Control', 'no-store')
     const key = sessionKey(req)
     const user = key && (await pool.query(`SELECT username FROM users
       JOIN login_sessions ON users.id = login_sessions.user_id
       WHERE token_hash = $1 AND expires_at > now()`, [key])).rows[0]
-    if (!user) return res.status(401).json({ success: false })
-    res.json({ username: user.username })
+    if (!user) return res.status(401).json({ success: false, message: 'Please sign in.' })
+    req.user = user
+    next()
+  }
+}
+
+function registerSessionRoutes(app, pool) {
+  app.get('/api/session', requireSession(pool), (req, res) => {
+    res.json({ username: req.user.username })
   })
 
   app.post('/api/logout', async (req, res) => {
@@ -41,4 +48,4 @@ function registerSessionRoutes(app, pool) {
   })
 }
 
-module.exports = { initializeSessions, issueSession, registerSessionRoutes }
+module.exports = { initializeSessions, issueSession, registerSessionRoutes, requireSession }

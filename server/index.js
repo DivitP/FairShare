@@ -4,7 +4,7 @@ const { Pool } = require('pg')
 
 const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
 
-const { initializeSessions, issueSession, registerSessionRoutes } = require('./sessions')
+const { initializeSessions, issueSession, registerSessionRoutes, requireSession } = require('./sessions')
 
 const app = express()
 app.use(cors())
@@ -52,7 +52,7 @@ app.post('/api/login', async (req, res) => {
   res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
 })
 
-app.post('/api/expenses', async (req, res) => {
+app.post('/api/expenses', requireSession(pool), async (req, res) => {
   const { description, amount, category, payer } = req.body
   const cents = Math.round(Number(amount) * 100)
   if (!description || !category || !payer || isNaN(cents) || cents <= 0) {
