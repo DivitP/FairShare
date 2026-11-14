@@ -33,6 +33,8 @@ export default function Dashboard({ username, onLogout }) {
       .catch(() => {})
   }, [])
 
+  const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
+
   const handleAddExpense = async (e) => {
     e.preventDefault()
     const cents = Math.round(Number(form.amount) * 100)
@@ -148,13 +150,13 @@ export default function Dashboard({ username, onLogout }) {
           </section>
 
           <section className="dashboard-summary-grid" aria-label="Balance summaries">
-            <SummaryCard label="Your total balance" amount={0}
-              description="You’re owed overall" icon="balances" variant="navy" />
-            <SummaryCard label="You are owed" amount={0}
+            <SummaryCard label="Your total balance" amount={totalCents}
+              description="Total balance" icon="balances" variant="navy" />
+            <SummaryCard label="You are owed" amount={totalCents}
               description="A little something coming back" icon="up" variant="blue" />
             <SummaryCard label="You owe" amount={0}
               description="You’re all settled up" icon="arrow" />
-            <SummaryCard label="Your total share" amount={0}
+            <SummaryCard label="Your total share" amount={totalCents}
               description="Across all household expenses" icon="insights" />
           </section>
 
