@@ -43,3 +43,52 @@ Create an account, sign in, and use **Add expense** on the dashboard.
 ## Current limitations
 Saved expenses reload from PostgreSQL, but overview totals are not yet per-person balances.
 Groups, settlements, and several navigation items are unfinished. Server-side access control is still required before public use.
+
+## Architecture
+
+### Components
+```mermaid
+flowchart LR
+  Browser[React in the browser] -->|/api requests| Vite[Vite development proxy]
+  Vite -->|HTTP port 5001| API[Express server]
+  API -->|Parameterized SQL via pg| DB[(PostgreSQL)]
+  Browser -->|Username for UI navigation| Storage[sessionStorage]
+  Browser -->|Sums loaded expense amounts| Summary[Overview cards]
+```
+
+`src/App.jsx` selects the login, signup, or dashboard screen.
+`src/auth/` sends account requests; `src/dashboard/` renders the expense form and overview.
+`vite.config.mjs` proxies local API requests to `server/index.js`.
+The server stores accounts and expenses in PostgreSQL.
+Browser storage selects the UI; it is not server-verified authorization.
+The Vite proxy shown here describes local development, not a production deployment.
+
+### Add-expense sequence
+```mermaid
+sequenceDiagram
+  actor User
+  participant UI as React dashboard
+  participant API as Express (via Vite)
+  participant DB as PostgreSQL
+  User->>UI: Enter description, amount, category, payer
+  UI->>API: POST /api/expenses (amount in dollars)
+  API->>API: Validate fields and convert to cents
+  alt Invalid expense
+    API-->>UI: 400 with error message
+  else Valid expense
+    API->>DB: INSERT expense, RETURNING saved row
+    DB-->>API: Saved row
+    API-->>UI: success and expense
+    UI->>UI: Prepend an expense to browser state
+  end
+  User->>UI: Refresh the dashboard
+  UI->>API: GET /api/expenses
+  API->>DB: SELECT expenses ordered by newest ID
+  DB-->>API: Saved expenses
+  API-->>UI: Expenses for display
+```
+
+The database stores integer cents. The current dashboard constructs its display row locally.
+Refreshing loads saved rows; per-person shares and balances are still provisional.
+Database failures return an error; the success path above does not imply a completed payment.
+Update both diagrams when group ownership, balance calculations, or sessions change.
