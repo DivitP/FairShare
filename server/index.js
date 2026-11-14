@@ -80,5 +80,10 @@ app.post('/api/expenses', async (req, res) => {
   }
 })
 
+app.delete('/api/expenses/:id', async (req, res) => {
+  await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id])
+  res.json({ success: true })
+})
+
 const PORT = process.env.PORT || 5001
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
