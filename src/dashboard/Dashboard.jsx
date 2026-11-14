@@ -64,6 +64,11 @@ export default function Dashboard({ username, onLogout }) {
     setForm({ description: '', amount: '', category: 'Groceries', payer: '' })
     setError('')
   }
+
+  const handleDeleteExpense = async (id) => {
+    await fetch(`/api/expenses/${id}`, { method: 'DELETE' })
+    setExpenses(expenses.filter(e => e.id !== id))
+  }
   return (
     <div className="dashboard-page">
       <aside className="dashboard-sidebar" aria-label="Dashboard sidebar">
@@ -134,9 +139,7 @@ export default function Dashboard({ username, onLogout }) {
         <div className="dashboard-content">
           <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
             <div>
-              <p className="dashboard-eyebrow">Split fairly</p>
               <h1 id="dashboard-heading">{username ? `${username}, welcome.` : 'Welcome.'}</h1>
-              <p className="dashboard-description">Here’s where things stand with your group.</p>
             </div>
             <div className="dashboard-actions">
               <button className="dashboard-action" type="button" disabled aria-describedby="dashboard-actions-note">
@@ -151,13 +154,11 @@ export default function Dashboard({ username, onLogout }) {
 
           <section className="dashboard-summary-grid" aria-label="Balance summaries">
             <SummaryCard label="Your total balance" amount={totalCents}
-              description="Total balance" icon="balances" variant="navy" />
+              description="" icon="balances" variant="navy" />
             <SummaryCard label="You are owed" amount={totalCents}
-              description="A little something coming back" icon="up" variant="blue" />
+              description="" icon="up" variant="blue" />
             <SummaryCard label="You owe" amount={0}
-              description="You’re all settled up" icon="arrow" />
-            <SummaryCard label="Your total share" amount={totalCents}
-              description="Across all household expenses" icon="insights" />
+              description="" icon="arrow" />
           </section>
 
           <section className="dashboard-expenses" aria-labelledby="recent-expenses-heading">
@@ -180,6 +181,14 @@ export default function Dashboard({ username, onLogout }) {
                     <span>you {expense.direction}</span>
                     <strong>{formatUSD(expense.userAmount)}</strong>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExpense(expense.id)}
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px 8px', fontSize: '15px' }}
+                    title="Delete expense"
+                  >
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>
