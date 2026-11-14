@@ -20,7 +20,7 @@ await pool.query(`
     username TEXT UNIQUE,
     password TEXT
   )
-`)
+`).catch(err => console.error('DB error:', err.message))
 
 await pool.query(`
 CREATE TABLE IF NOT EXISTS expenses (
@@ -71,16 +71,25 @@ app.post('/api/signup', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body
 
-  const { rows } = await pool.query(
-    'SELECT * FROM users WHERE username = $1 AND password = $2',
-    [username, password]
-  )
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM users WHERE username = $1 AND password = $2',
+      [username, password]
+    )
 
-  if (rows.length === 0) {
-    return res.status(400).json({ success: false, message: 'Invalid username or password' })
+    if (rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid username or password' })
+    }
+
+    res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database error' })
   }
+})
 
-  res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
+app.get('/api/expenses', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM expenses ORDER BY id DESC')
+  res.json({ expenses: rows })
 })
 
 app.post('/api/expenses', async (req, res) => {
@@ -131,6 +140,10 @@ app.post('/api/groups', async (req, res) => {
 
 
 
+app.delete('/api/expenses/:id', async (req, res) => {
+  await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id])
+  res.json({ success: true })
+})
 
 const PORT = process.env.PORT || 5001
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
