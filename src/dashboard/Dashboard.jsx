@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Dashboard.css'
 import DashboardIcon from './DashboardIcon'
 import SummaryCard from './SummaryCard'
-import { dashboardPreview, formatUSD } from './dashboardPreviewData'
+import { formatUSD } from './dashboardPreviewData'
 
 const navigationItems = [
   { label: 'Overview', icon: 'overview' },
@@ -17,7 +17,23 @@ export default function Dashboard({ username, onLogout }) {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
   const [error, setError] = useState('')
-  const [expenses, setExpenses] = useState(dashboardPreview.expenses)
+  const [expenses, setExpenses] = useState([])
+
+  useEffect(() => {
+    fetch('/api/expenses')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data?.expenses && setExpenses(data.expenses.map(e => ({
+        ...e,
+        total: e.amount,
+        icon: (e.category || 'household').toLowerCase(),
+        dateLabel: 'Today',
+        direction: 'lent',
+        userAmount: e.amount
+      }))))
+      .catch(() => {})
+  }, [])
+
+  const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
 
   const handleAddExpense = async (e) => {
     e.preventDefault()
@@ -119,7 +135,7 @@ export default function Dashboard({ username, onLogout }) {
           <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
             <div>
               <p className="dashboard-eyebrow">Split fairly</p>
-              <h1 id="dashboard-heading">Hey {username}, welcome home.</h1>
+              <h1 id="dashboard-heading">{username ? `${username}, welcome.` : 'Welcome.'}</h1>
               <p className="dashboard-description">Here’s where things stand with your group.</p>
             </div>
             <div className="dashboard-actions">
@@ -134,13 +150,13 @@ export default function Dashboard({ username, onLogout }) {
           </section>
 
           <section className="dashboard-summary-grid" aria-label="Balance summaries">
-            <SummaryCard label="Your total balance" amount={dashboardPreview.balance}
-              description="You’re owed overall" icon="balances" variant="navy" />
-            <SummaryCard label="You are owed" amount={dashboardPreview.owed}
+            <SummaryCard label="Your total balance" amount={totalCents}
+              description="Total balance" icon="balances" variant="navy" />
+            <SummaryCard label="You are owed" amount={totalCents}
               description="A little something coming back" icon="up" variant="blue" />
-            <SummaryCard label="You owe" amount={dashboardPreview.owing}
+            <SummaryCard label="You owe" amount={0}
               description="You’re all settled up" icon="arrow" />
-            <SummaryCard label="Your total share" amount={dashboardPreview.totalShare}
+            <SummaryCard label="Your total share" amount={totalCents}
               description="Across all household expenses" icon="insights" />
           </section>
 
