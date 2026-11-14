@@ -1,9 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import Signup from './Signup'
-import Login from './Login'
-import Dashboard from './Dashboard'
+import Signup from './auth/Signup'
+import Login from './auth/Login'
+import Dashboard from './dashboard/Dashboard'
 import './styles.css'
+import './auth/styles.css'
 
 export default function App() {
   const [page, setPage] = React.useState('login')
