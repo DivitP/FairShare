@@ -1,14 +1,19 @@
 import { useState } from 'react'
 
-export default function Login({ onCreateAccount }) {
+export default function Login({ onCreateAccount, initialMessage = '' }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(initialMessage)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isError, setIsError] = useState(false)
 
   const handleLogin = async (event) => {
     event.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    setMessage('')
+    setIsError(false)
 
-    // Connect to backend API for login
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -16,15 +21,23 @@ export default function Login({ onCreateAccount }) {
         body: JSON.stringify({ username, password })
       })
 
-      const data = await response.json()
-      setMessage(data.message)
+      const data = await response.json().catch(() => null)
 
-      if (response.ok) {
-        console.log('Logged in user:', data.username)
+      if (response.ok && data?.success) {
+        sessionStorage.setItem('fairshare.username', data.username)
+        window.location.assign('/dashboard')
+      } else {
+        setIsError(true)
+        setMessage(response.status >= 500
+          ? 'The server is unavailable. Please try again shortly.'
+          : data?.message || 'Unable to sign in. Please try again.')
       }
     } catch (error) {
       console.error('Connection error:', error)
-      setMessage('Failed to connect to the server.')
+      setIsError(true)
+      setMessage('Unable to connect to the server. Check your connection and try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -34,7 +47,7 @@ export default function Login({ onCreateAccount }) {
         <h1 id="login-heading">Welcome back.</h1>
       </header>
 
-      <form className="login-form" onSubmit={handleLogin}>
+      <form className="login-form" onSubmit={handleLogin} aria-busy={isSubmitting}>
         <div className="login-field">
           <label htmlFor="login-username">Username</label>
           <input
@@ -61,8 +74,8 @@ export default function Login({ onCreateAccount }) {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <button className="login-submit" type="submit">
-          Sign in
+        <button className="login-submit" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Signing in…' : 'Sign in'}
           <svg
             width="20"
             height="20"
@@ -77,11 +90,11 @@ export default function Login({ onCreateAccount }) {
             <path d="M4 12h16m-7-7 7 7-7 7" />
           </svg>
         </button>
-        {message && <p className="login-message" role="status">{message}</p>}
+        {message && <p className={`login-message${isError ? ' form-error' : ''}`} role={isError ? 'alert' : 'status'}>{message}</p>}
       </form>
 
       <p className="login-account">
-        <button type="button" onClick={onCreateAccount}>
+        <button type="button" onClick={onCreateAccount} disabled={isSubmitting}>
           Create an account
         </button>
       </p>
