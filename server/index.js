@@ -46,7 +46,7 @@ await pool.query(`
 initDB().catch(console.error);
 
 function createInviteCode(){
-  const possibleChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const possibleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   const codelength = 6;
   let code = '';
   for (let i = 0; i < codelength; i++)

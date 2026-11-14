@@ -18,7 +18,13 @@ export default function Dashboard({ username, onLogout }) {
   const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
   const [error, setError] = useState('')
   const [expenses, setExpenses] = useState([])
+  const [showGroupOptions, setShowGroupOptions] = useState(false)
+  const [inviteCode, setInviteCode] = useState('')
 
+  const code = inviteCode.trim().toUpperCase()
+  function validateCode(code) {
+    return /^[A-Z0-9]{6}$/.test(code)
+  }
   useEffect(() => {
     fetch('/api/expenses')
       .then(res => res.ok ? res.json() : null)
@@ -114,8 +120,9 @@ export default function Dashboard({ username, onLogout }) {
         <section className="dashboard-groups" aria-labelledby="groups-label">
           <div className="dashboard-groups-heading">
             <h2 className="dashboard-section-label" id="groups-label">Your groups</h2>
-            <button className="dashboard-add-group" type="button" disabled
-              aria-label="Add group (coming soon)" title="Add group — coming soon">+</button>
+            <button className="dashboard-add-group" type="button" aria-label="Add Group" aria-expanded={showGroupOptions}
+            onClick={() => setShowGroupOptions(true)} style={{ cursor: 'pointer' }}>
+              +</button>
           </div>
           <div className="dashboard-group-entry">
             <span className="dashboard-group-dot" aria-hidden="true" />
@@ -219,6 +226,32 @@ export default function Dashboard({ username, onLogout }) {
           </div>
         </div>
       )}
+      {showGroupOptions && (
+  <div className="modal-overlay" onClick={() => setShowGroupOptions(false)}>
+    <div className="modal-content" role="dialog" aria-modal="true" aria-label="Add a group"
+      onClick={event => event.stopPropagation()}>
+      <label htmlFor="invite-code">Invite code</label>
+      <input id="invite-code" value={inviteCode}
+        onChange={event => setInviteCode(event.target.value)}
+        maxLength={6}
+        autoFocus
+      />
+      <div className="modal-actions">
+        <button className="dashboard-action" type="button" disabled={!validateCode(inviteCode)}
+          onClick={() => handleJoinGroup(inviteCode.trim().toUpperCase())}>
+          Join group
+        </button>
+        <button className="dashboard-action dashboard-action-primary" type="button"
+          onClick={() => {
+            setShowGroupOptions(false)
+            setShowCreateGroup(true)
+          }}>
+          Create group
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   )
 }
