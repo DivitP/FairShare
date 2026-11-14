@@ -39,17 +39,26 @@ app.post('/api/login', async (req, res) => {
   if (typeof username !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ success: false, message: 'Invalid username or password' })
   }
-  const { rows } = await pool.query(
-    'SELECT id, username, password_hash FROM users WHERE username = $1',
-    [username]
-  )
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      [username]
+    )
 
-  if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) {
-    return res.status(400).json({ success: false, message: 'Invalid username or password' })
+    if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) {
+      return res.status(400).json({ success: false, message: 'Invalid username or password' })
+    }
+
+    await issueSession(pool, req, res, rows[0].id)
+    res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database error' })
   }
+})
 
-  await issueSession(pool, req, res, rows[0].id)
-  res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
+app.get('/api/expenses', requireSession(pool), async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM expenses ORDER BY id DESC')
+  res.json({ expenses: rows })
 })
 
 app.post('/api/expenses', requireSession(pool), async (req, res) => {
@@ -67,6 +76,11 @@ app.post('/api/expenses', requireSession(pool), async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, message: 'Database error' })
   }
+})
+
+app.delete('/api/expenses/:id', requireSession(pool), async (req, res) => {
+  await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id])
+  res.json({ success: true })
 })
 
 const PORT = process.env.PORT || 5001
