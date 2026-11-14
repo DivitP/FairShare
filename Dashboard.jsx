@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Dashboard.css'
 import DashboardIcon from './DashboardIcon'
 import SummaryCard from './SummaryCard'
-import { dashboardPreview, formatUSD } from './dashboardPreviewData'
+import { formatUSD } from './dashboardPreviewData'
 
 const navigationItems = [
   { label: 'Overview', icon: 'overview' },
@@ -17,7 +17,21 @@ export default function Dashboard() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
   const [error, setError] = useState('')
-  const [expenses, setExpenses] = useState(dashboardPreview.expenses)
+  const [expenses, setExpenses] = useState([])
+
+  useEffect(() => {
+    fetch('/api/expenses')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data?.expenses && setExpenses(data.expenses.map(e => ({
+        ...e,
+        total: e.amount,
+        icon: (e.category || 'household').toLowerCase(),
+        dateLabel: 'Today',
+        direction: 'lent',
+        userAmount: e.amount
+      }))))
+      .catch(() => {})
+  }, [])
 
   const handleAddExpense = async (e) => {
     e.preventDefault()
@@ -119,7 +133,7 @@ export default function Dashboard() {
           <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
             <div>
               <p className="dashboard-eyebrow">Split fairly</p>
-              <h1 id="dashboard-heading">Hey {dashboardPreview.firstName}, welcome home.</h1>
+              <h1 id="dashboard-heading">Welcome home.</h1>
               <p className="dashboard-description">Here’s where things stand with your group.</p>
             </div>
             <div className="dashboard-actions">
@@ -134,13 +148,13 @@ export default function Dashboard() {
           </section>
 
           <section className="dashboard-summary-grid" aria-label="Balance summaries">
-            <SummaryCard label="Your total balance" amount={dashboardPreview.balance}
+            <SummaryCard label="Your total balance" amount={0}
               description="You’re owed overall" icon="balances" variant="navy" />
-            <SummaryCard label="You are owed" amount={dashboardPreview.owed}
+            <SummaryCard label="You are owed" amount={0}
               description="A little something coming back" icon="up" variant="blue" />
-            <SummaryCard label="You owe" amount={dashboardPreview.owing}
+            <SummaryCard label="You owe" amount={0}
               description="You’re all settled up" icon="arrow" />
-            <SummaryCard label="Your total share" amount={dashboardPreview.totalShare}
+            <SummaryCard label="Your total share" amount={0}
               description="Across all household expenses" icon="insights" />
           </section>
 
