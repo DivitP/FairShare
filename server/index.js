@@ -79,6 +79,18 @@ app.post('/api/expenses', requireSession(pool), async (req, res) => {
   }
 })
 
+app.get('/api/groups', requireSession(pool), async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT g.id, g.name, g.invite_code FROM roommate_groups g
+       JOIN group_members m ON m.group_id = g.id
+       WHERE m.user_id = $1 ORDER BY g.id DESC`, [req.user.id])
+    res.json({ groups: rows })
+  } catch {
+    res.status(500).json({ success: false, message: 'Could not load your groups.' })
+  }
+})
+
 app.post('/api/groups', requireSession(pool), async (req, res) => {
   const name = normalizeGroupName(req.body?.name)
   if (!name) {

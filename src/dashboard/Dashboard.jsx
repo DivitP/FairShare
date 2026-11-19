@@ -18,6 +18,49 @@ export default function Dashboard({ username, onLogout }) {
   const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
   const [error, setError] = useState('')
   const [expenses, setExpenses] = useState([])
+  const [groups, setGroups] = useState([])
+  const [groupsLoading, setGroupsLoading] = useState(true)
+  const [groupsError, setGroupsError] = useState('')
+  const [groupsReload, setGroupsReload] = useState(0)
+  const [selectedGroupId, setSelectedGroupId] = useState(null)
+  const selectionKey = 'fairshare.selectedGroup.' + username
+
+  function selectGroup(id) {
+    setSelectedGroupId(id)
+    try { sessionStorage.setItem(selectionKey, String(id)) } catch {}
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setGroupsLoading(true)
+    setGroupsError('')
+    async function loadGroups() {
+      try {
+        const response = await fetch('/api/groups', { signal: controller.signal })
+        if (!response.ok) throw new Error(response.status === 401
+          ? 'Please sign in again to load your groups.' : 'Could not load your groups.')
+        const data = await response.json()
+        if (!Array.isArray(data.groups)) throw new Error('Could not load your groups.')
+        if (controller.signal.aborted) return
+        setGroups(data.groups)
+        let saved
+        try { saved = sessionStorage.getItem(selectionKey) } catch {}
+        setSelectedGroupId(current => data.groups.find(g => g.id === current)?.id
+          ?? data.groups.find(g => String(g.id) === saved)?.id ?? data.groups[0]?.id ?? null)
+      } catch (err) {
+        if (!controller.signal.aborted) setGroupsError(err.message)
+      } finally {
+        if (!controller.signal.aborted) setGroupsLoading(false)
+      }
+    }
+    loadGroups()
+    return () => controller.abort()
+  }, [selectionKey, groupsReload])
+
+  const selectedGroup = groups.find(group => group.id === selectedGroupId)
+  const workspaceName = selectedGroup?.name
+    || (groupsLoading ? 'Loading groups…' : groupsError ? 'Groups unavailable' : 'No group selected')
+
   const [showGroupOptions, setShowGroupOptions] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -62,6 +105,9 @@ export default function Dashboard({ username, onLogout }) {
         return
       }
       setCreatedGroup(data.group)
+      setGroups(current => [data.group, ...current.filter(group => group.id !== data.group.id)])
+      selectGroup(data.group.id)
+      setGroupsReload(current => current + 1)
     } catch {
       setGroupNotice('Could not confirm whether the group was saved. Check your connection before trying again.')
     } finally {
@@ -154,8 +200,8 @@ export default function Dashboard({ username, onLogout }) {
           <div className="dashboard-household">
             <span className="dashboard-household-icon"><DashboardIcon name="home" /></span>
             <div className="dashboard-household-copy">
-              <strong title="Dorm 777">Dorm 777</strong>
-              <span>3 roommates · USD</span>
+              <strong title={workspaceName}>{workspaceName}</strong>
+              <span>{selectedGroup ? "Selected group · USD" : "Your workspace"}</span>
             </div>
           </div>
         </section>
@@ -187,11 +233,18 @@ export default function Dashboard({ username, onLogout }) {
             onClick={() => setShowGroupOptions(true)} style={{ cursor: 'pointer' }}>
               +</button>
           </div>
-          <div className="dashboard-group-entry">
-            <span className="dashboard-group-dot" aria-hidden="true" />
-            <span>Dorm 777</span>
-            <span className="dashboard-sample-label">Sample</span>
-          </div>
+          {groupsLoading && <p role="status">Loading groups…</p>}
+          {groupsError && <div role="alert"><p>{groupsError}</p>
+            <button type="button" onClick={() => setGroupsReload(current => current + 1)}>Retry</button>
+          </div>}
+          {!groupsLoading && !groupsError && groups.length === 0 && <p>No groups yet. Create one using +.</p>}
+          {groups.map(group => (
+            <button key={group.id} type="button" className="dashboard-group-entry dashboard-group-select"
+              aria-pressed={selectedGroupId === group.id} onClick={() => selectGroup(group.id)}>
+              <span className="dashboard-group-dot" aria-hidden="true" />
+              <span>{group.name}</span>
+            </button>
+          ))}
         </section>
         <button className="dashboard-login-link" type="button" onClick={onLogout}>Log out</button>
       </aside>
@@ -199,7 +252,7 @@ export default function Dashboard({ username, onLogout }) {
       <main className="dashboard-main" aria-labelledby="dashboard-heading">
         <header className="dashboard-topbar">
           <nav className="dashboard-breadcrumb" aria-label="Breadcrumb">
-            <span>Dorm 777</span>
+            <span>{workspaceName}</span>
             <DashboardIcon name="chevron" />
             <span aria-current="page">Overview</span>
           </nav>

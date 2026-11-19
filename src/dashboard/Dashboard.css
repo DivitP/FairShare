@@ -349,3 +349,7 @@
 .group-dialog label { font-weight: 600; }
 .group-dialog input { width: 100%; min-width: 0; }
 .group-dialog .modal-actions { flex-wrap: wrap; }
+
+.dashboard-group-select { width: 100%; border: 1px solid transparent; background: transparent; text-align: left; color: inherit; }
+.dashboard-group-select[aria-pressed="true"] { background: #eaf0fa; border-color: #c8d8ef; color: #244776; }
+.dashboard-group-select span { overflow-wrap: anywhere; }
