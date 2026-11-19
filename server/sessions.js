@@ -28,7 +28,7 @@ function requireSession(pool) {
   return async (req, res, next) => {
     res.set('Cache-Control', 'no-store')
     const key = sessionKey(req)
-    const user = key && (await pool.query(`SELECT username FROM users
+    const user = key && (await pool.query(`SELECT users.id, users.username FROM users
       JOIN login_sessions ON users.id = login_sessions.user_id
       WHERE token_hash = $1 AND expires_at > now()`, [key])).rows[0]
     if (!user) return res.status(401).json({ success: false, message: 'Please sign in.' })
@@ -39,7 +39,7 @@ function requireSession(pool) {
 
 function registerSessionRoutes(app, pool) {
   app.get('/api/session', requireSession(pool), (req, res) => {
-    res.json({ username: req.user.username })
+    res.json({ id: req.user.id, username: req.user.username })
   })
 
   app.post('/api/logout', async (req, res) => {

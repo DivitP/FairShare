@@ -91,20 +91,17 @@ app.post('/api/expenses', requireSession(pool), async (req, res) => {
   }
 })
 
-app.post('/api/groups', async (req, res) => {
- const {name, username} = req.body
+app.post('/api/groups', requireSession(pool), async (req, res) => {
+  const { name } = req.body || {}
 
   try {
     const {rows} = await pool.query(
       `INSERT INTO roommate_groups (name, invite_code, created_by)
-       SELECT $1, $2, id FROM users WHERE username = $3
+       VALUES ($1, $2, $3)
        RETURNING id, name, invite_code, created_by`,
-      [name, createInviteCode(), username]
+      [name, createInviteCode(), req.user.id]
     )
     const group = rows[0];
-    if (!group) {
-      return res.status(404).json({ success: false, message: 'User not found' })
-    }
     await pool.query(
       'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
       [group.id, group.created_by]
