@@ -13,9 +13,14 @@ const navigationItems = [
   { label: 'Activity', icon: 'activity' },
 ]
 
+function todayLocal() {
+  const date = new Date()
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+}
+
 export default function Dashboard({ username, onLogout }) {
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
+  const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '', expenseDate: todayLocal() })
   const [error, setError] = useState('')
   const [expenses, setExpenses] = useState([])
   const [groups, setGroups] = useState([])
@@ -178,7 +183,7 @@ export default function Dashboard({ username, onLogout }) {
   }, [selectedGroupId, expenseReload])
 
   function expenseView(e) {
-    return {...e,total:e.amount,icon:e.category.toLowerCase(),dateLabel:'',direction:'expense total',userAmount:e.amount}
+    return {...e,total:e.amount,icon:e.category.toLowerCase(),dateLabel:e.expense_date || 'Date unknown',direction:'expense total',userAmount:e.amount}
   }
   const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
 
@@ -194,7 +199,7 @@ export default function Dashboard({ username, onLogout }) {
       if (!res.ok) throw new Error(data.message || 'Could not save expense.')
       setExpenseReload(n => n + 1)
       setShowAdd(false)
-      setForm({description:'',amount:'',category:'Groceries',payer:''})
+      setForm({description:'',amount:'',category:'Groceries',payer:'',expenseDate:todayLocal()})
     } catch(err) { setError(err.message) }
     finally { expensePending.current = false; setSavingExpense(false) }
   }
@@ -349,7 +354,10 @@ export default function Dashboard({ username, onLogout }) {
             <h3 style={{ margin: 0 }}>Add Expense</h3>
             {error && <p className="modal-error">{error}</p>}
             <form onSubmit={handleAddExpense}>
-              <input placeholder="Description" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+              <label htmlFor="expense-date">Expense date</label>
+              <input id="expense-date" type="date" required min="0001-01-01" max="9999-12-31"
+                value={form.expenseDate} onChange={e => setForm({ ...form, expenseDate: e.target.value })} />
+              <input placeholder="Description"  required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
               <input type="number" step="0.01" min="0.01" placeholder="Amount ($)" required value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
               <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                 <option value="Groceries">Groceries</option>

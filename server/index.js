@@ -67,20 +67,26 @@ async function requireGroup(req, res, next) {
 }
 
 app.get('/api/expenses', requireSession(pool), requireGroup, async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM expenses WHERE group_id=$1 ORDER BY id DESC', [req.groupId])
+  const { rows } = await pool.query(`SELECT expenses.*, to_char(expense_date, 'YYYY-MM-DD') AS expense_date FROM expenses WHERE group_id=$1 ORDER BY id DESC`, [req.groupId])
   res.json({ expenses: rows })
 })
 
 app.post('/api/expenses', requireSession(pool), requireGroup, async (req, res) => {
-  const { description, amount, category, payer } = req.body || {}
+  const { description, amount, category, payer, expenseDate } = req.body || {}
+  const parsedDate = typeof expenseDate === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(expenseDate)
+    ? new Date(expenseDate + 'T00:00:00Z') : null
+  if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || expenseDate.startsWith('0000')
+      || parsedDate.toISOString().slice(0, 10) !== expenseDate) {
+    return res.status(400).json({ message: 'Enter a valid expense date (YYYY-MM-DD).' })
+  }
   const cents = Math.round(Number(amount) * 100)
   if (![description, category, payer].every(v => typeof v === 'string' && v.trim())
       || !Number.isSafeInteger(cents) || cents <= 0 || cents > 2147483647) {
     return res.status(400).json({ message: 'Invalid or missing expense details.' })
   }
   const { rows } = await pool.query(
-    'INSERT INTO expenses (description, amount, category, payer, group_id) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-    [description.trim(), cents, category.trim(), payer.trim(), req.groupId])
+    `INSERT INTO expenses (description, amount, category, payer, group_id, expense_date) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *, to_char(expense_date, 'YYYY-MM-DD') AS expense_date`,
+    [description.trim(), cents, category.trim(), payer.trim(), req.groupId, expenseDate])
   res.json({ success: true, expense: rows[0] })
 })
 
@@ -159,6 +165,7 @@ async function start() {
     PRIMARY KEY (group_id, user_id))`)
 
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES roommate_groups(id)')
+  await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS expense_date DATE')
   await pool.query('CREATE INDEX IF NOT EXISTS expenses_group_id_idx ON expenses(group_id)')
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
 }

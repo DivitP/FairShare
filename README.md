@@ -54,3 +54,8 @@ Existing expenses from before group support are preserved with no group assigned
 They are excluded from the group views: there is no reliable way to infer their
 original group. No existing rows are automatically reassigned or deleted.
 Per-person splitting and balance calculations remain future work.
+
+New expenses require a group membership and a valid calendar date. Dates are
+stored as PostgreSQL DATE values and returned as YYYY-MM-DD, without timezone
+conversion. The form defaults to the user's local current date. Older expenses
+without a known date remain NULL and display “Date unknown”; dates are not guessed.
