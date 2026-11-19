@@ -58,13 +58,23 @@ app.post('/api/login', async (req, res) => {
 })
 
 async function requireGroup(req, res, next) {
-  const id = Number(req.query.groupId || req.body?.groupId)
+  const id = Number(req.params.groupId ?? req.query.groupId ?? req.body?.groupId)
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: 'Select a valid group.' })
   const member = await pool.query('SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2', [id, req.user.id])
   if (!member.rowCount) return res.status(404).json({ message: 'Group not found.' })
   req.groupId = id
   next()
 }
+
+app.get('/api/groups/:groupId/expenses', requireSession(pool), requireGroup, async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT expenses.*, to_char(expense_date, 'YYYY-MM-DD') AS expense_date
+     FROM expenses WHERE group_id = $1
+     ORDER BY expenses.expense_date DESC NULLS LAST, expenses.id DESC`,
+    [req.groupId]
+  )
+  res.json({ expenses: rows })
+})
 
 app.get('/api/expenses', requireSession(pool), requireGroup, async (req, res) => {
   const { rows } = await pool.query(`SELECT expenses.*, to_char(expense_date, 'YYYY-MM-DD') AS expense_date FROM expenses WHERE group_id=$1 ORDER BY id DESC`, [req.groupId])
