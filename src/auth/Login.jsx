@@ -24,7 +24,6 @@ export default function Login({ onCreateAccount, initialMessage = '' }) {
       const data = await response.json().catch(() => null)
 
       if (response.ok && data?.success) {
-        sessionStorage.setItem('fairshare.username', data.username)
         window.location.assign('/dashboard')
       } else {
         setIsError(true)
