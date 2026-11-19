@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './Dashboard.css'
 import DashboardIcon from './DashboardIcon'
 import SummaryCard from './SummaryCard'
@@ -19,12 +19,75 @@ export default function Dashboard({ username, onLogout }) {
   const [error, setError] = useState('')
   const [expenses, setExpenses] = useState([])
   const [showGroupOptions, setShowGroupOptions] = useState(false)
-  const [inviteCode, setInviteCode] = useState('')
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [groupNotice, setGroupNotice] = useState('')
 
-  const code = inviteCode.trim().toUpperCase()
-  function validateCode(code) {
-    return /^[A-Z0-9]{6}$/.test(code)
+  const [savingGroup, setSavingGroup] = useState(false)
+  const [createdGroup, setCreatedGroup] = useState(null)
+  const [copyNotice, setCopyNotice] = useState('')
+  const groupRequestPending = useRef(false)
+  const groupSuccessHeading = useRef(null)
+
+  useEffect(() => {
+    if (createdGroup) groupSuccessHeading.current?.focus()
+  }, [createdGroup])
+
+  async function submitGroup(event) {
+    event.preventDefault()
+    if (groupRequestPending.current || createdGroup) return
+    const name = groupName.trim()
+    if (!name || name.length > 100) {
+      setGroupNotice('Group name must be between 1 and 100 characters.')
+      return
+    }
+    groupRequestPending.current = true
+    setSavingGroup(true)
+    setGroupNotice('')
+    try {
+      const response = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setGroupNotice(response.status === 401
+          ? 'Your session has expired. Please sign in again.'
+          : data?.message || 'Could not create group. Please try again.')
+        return
+      }
+      if (!data?.success || !data.group?.name || !data.group?.invite_code) {
+        setGroupNotice('The server returned an unexpected response. The group may have been created.')
+        return
+      }
+      setCreatedGroup(data.group)
+    } catch {
+      setGroupNotice('Could not confirm whether the group was saved. Check your connection before trying again.')
+    } finally {
+      groupRequestPending.current = false
+      setSavingGroup(false)
+    }
   }
+
+  async function copyInviteCode() {
+    try {
+      await navigator.clipboard.writeText(createdGroup.invite_code)
+      setCopyNotice('Code copied.')
+    } catch {
+      setCopyNotice('Could not copy automatically. Select and copy the code above.')
+    }
+  }
+
+  function closeCreateGroup() {
+    if (groupRequestPending.current) return
+    setCreatedGroup(null)
+    setCopyNotice('')
+    setShowCreateGroup(false)
+    setGroupName('')
+    setGroupNotice('')
+  }
+
   useEffect(() => {
     fetch('/api/expenses')
       .then(res => res.ok ? res.json() : null)
@@ -120,7 +183,7 @@ export default function Dashboard({ username, onLogout }) {
         <section className="dashboard-groups" aria-labelledby="groups-label">
           <div className="dashboard-groups-heading">
             <h2 className="dashboard-section-label" id="groups-label">Your groups</h2>
-            <button className="dashboard-add-group" type="button" aria-label="Add Group" aria-expanded={showGroupOptions}
+            <button className="dashboard-add-group" type="button" aria-label="Add Group" aria-expanded={showGroupOptions || showCreateGroup}
             onClick={() => setShowGroupOptions(true)} style={{ cursor: 'pointer' }}>
               +</button>
           </div>
@@ -227,31 +290,69 @@ export default function Dashboard({ username, onLogout }) {
         </div>
       )}
       {showGroupOptions && (
-  <div className="modal-overlay" onClick={() => setShowGroupOptions(false)}>
-    <div className="modal-content" role="dialog" aria-modal="true" aria-label="Add a group"
-      onClick={event => event.stopPropagation()}>
-      <label htmlFor="invite-code">Invite code</label>
-      <input id="invite-code" value={inviteCode}
-        onChange={event => setInviteCode(event.target.value)}
-        maxLength={6}
-        autoFocus
-      />
-      <div className="modal-actions">
-        <button className="dashboard-action" type="button" disabled={!validateCode(inviteCode)}
-          onClick={() => handleJoinGroup(inviteCode.trim().toUpperCase())}>
-          Join group
-        </button>
-        <button className="dashboard-action dashboard-action-primary" type="button"
-          onClick={() => {
-            setShowGroupOptions(false)
-            setShowCreateGroup(true)
+        <dialog className="modal-content group-dialog" aria-labelledby="group-options-title"
+          ref={node => { if (node && !node.open) node.showModal() }}
+          onCancel={() => setShowGroupOptions(false)}>
+          <h2 id="group-options-title">Add a group</h2>
+          <p id="join-coming-soon">Joining by invite code is coming soon.</p>
+          <div className="modal-actions">
+            <button className="dashboard-action" type="button" disabled aria-describedby="join-coming-soon">
+              Join group
+            </button>
+            <button className="dashboard-action dashboard-action-primary" type="button"
+              onClick={() => {
+                setShowGroupOptions(false)
+                setShowCreateGroup(true)
+              }}>
+              Create group
+            </button>
+          </div>
+          <button className="dashboard-action" type="button" onClick={() => setShowGroupOptions(false)}>Cancel</button>
+        </dialog>
+      )}
+      {showCreateGroup && (
+        <dialog className="modal-content group-dialog" aria-labelledby="create-group-title"
+          ref={node => { if (node && !node.open) node.showModal() }}
+          onCancel={event => {
+            if (groupRequestPending.current) event.preventDefault()
+            else closeCreateGroup()
           }}>
-          Create group
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          {createdGroup ? (
+            <>
+              <h2 id="create-group-title" tabIndex={-1} ref={groupSuccessHeading}>Group created</h2>
+              <p><strong>{createdGroup.name}</strong></p>
+              <p>Invite code: <code>{createdGroup.invite_code}</code></p>
+              <p>Joining by invite code is coming soon.</p>
+              {copyNotice && <p role="status">{copyNotice}</p>}
+              <div className="modal-actions">
+                <button className="dashboard-action" type="button" onClick={copyInviteCode}>Copy code</button>
+                <button className="dashboard-action dashboard-action-primary" type="button" onClick={closeCreateGroup}>Done</button>
+              </div>
+            </>
+          ) : (
+          <>
+          <h2 id="create-group-title">Create a group</h2>
+          <form onSubmit={submitGroup} aria-busy={savingGroup}>
+            <label htmlFor="group-name">Group name</label>
+            <input id="group-name" name="groupName" placeholder="e.g. Dorm 777"
+              required maxLength={100} autoFocus value={groupName} disabled={savingGroup}
+              aria-describedby="group-name-help"
+              onChange={event => {
+                setGroupName(event.target.value)
+                setGroupNotice('')
+              }} />
+            <p id="group-name-help">Choose a name between 1 and 100 characters.</p>
+            {groupNotice && <p role="alert" className="modal-error">{groupNotice}</p>}
+            <div className="modal-actions">
+              <button className="dashboard-action" type="button" disabled={savingGroup} onClick={closeCreateGroup}>Cancel</button>
+              <button className="dashboard-action dashboard-action-primary" type="submit"
+                disabled={savingGroup || !groupName.trim()}>{savingGroup ? 'Creating…' : 'Create'}</button>
+            </div>
+          </form>
+          </>
+          )}
+        </dialog>
+      )}
     </div>
   )
 }
