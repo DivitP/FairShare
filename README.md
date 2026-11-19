@@ -43,3 +43,14 @@ Create an account, sign in, and use **Add expense** on the dashboard.
 ## Current limitations
 Saved expenses reload from PostgreSQL, but overview totals are not yet per-person balances.
 Groups, settlements, and several navigation items are unfinished. Server-side access control is still required before public use.
+
+## Groups and shared expenses
+Signed-in users can create a group or join using its six-character invite code.
+Select a group in the sidebar before adding expenses. Group members can view,
+add, and delete that group's expenses; other users cannot access them.
+Joining the same group again does not duplicate membership.
+
+Existing expenses from before group support are preserved with no group assigned.
+They are excluded from the group views: there is no reliable way to infer their
+original group. No existing rows are automatically reassigned or deleted.
+Per-person splitting and balance calculations remain future work.

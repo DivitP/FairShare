@@ -134,55 +134,76 @@ export default function Dashboard({ username, onLogout }) {
     setGroupNotice('')
   }
 
-  useEffect(() => {
-    fetch('/api/expenses')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => data?.expenses && setExpenses(data.expenses.map(e => ({
-        ...e,
-        total: e.amount,
-        icon: (e.category || 'household').toLowerCase(),
-        dateLabel: 'Today',
-        direction: 'lent',
-        userAmount: e.amount
-      }))))
-      .catch(() => {})
-  }, [])
+  const [expenseReload, setExpenseReload] = useState(0)
+  const [expenseLoading, setExpenseLoading] = useState(false)
+  const [savingExpense, setSavingExpense] = useState(false)
+  const expensePending = useRef(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
+  const joinPending = useRef(false)
 
-  const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
-
-  const handleAddExpense = async (e) => {
-    e.preventDefault()
-    const cents = Math.round(Number(form.amount) * 100)
-    if (!form.description || !form.payer || !form.category || isNaN(cents) || cents <= 0) {
-      return setError('Please fill in all fields with a valid amount.')
-    }
-    const res = await fetch('/api/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
-    const data = await res.json()
-    if (!res.ok) return setError(data.message || 'Error saving expense')
-    const item = {
-      id: `exp-${Date.now()}`,
-      description: form.description,
-      payer: form.payer,
-      total: cents,
-      category: form.category,
-      icon: form.category.toLowerCase(),
-      dateLabel: 'Today',
-      direction: form.payer.toLowerCase() === 'you' ? 'lent' : 'borrowed',
-      userAmount: Math.round(cents / 3)
-    }
-    setExpenses([item, ...expenses])
-    setShowAdd(false)
-    setForm({ description: '', amount: '', category: 'Groceries', payer: '' })
-    setError('')
+  async function joinGroup(event) {
+    event.preventDefault()
+    if (joinPending.current) return
+    joinPending.current = true
+    setJoining(true)
+    setJoinError('')
+    try {
+      const res = await fetch('/api/groups/join', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({code:joinCode}) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Could not join group.')
+      setGroups(current => [data.group, ...current.filter(g => g.id !== data.group.id)])
+      selectGroup(data.group.id)
+      setGroupsReload(n => n + 1)
+      setShowGroupOptions(false)
+      setJoinCode('')
+    } catch (err) { setJoinError(err.message) }
+    finally { joinPending.current = false; setJoining(false) }
   }
 
-  const handleDeleteExpense = async (id) => {
-    await fetch(`/api/expenses/${id}`, { method: 'DELETE' })
-    setExpenses(expenses.filter(e => e.id !== id))
+  useEffect(() => {
+    const controller = new AbortController()
+    setExpenses([])
+    setError('')
+    setShowAdd(false)
+    if (!selectedGroupId) { setExpenseLoading(false); return }
+    setExpenseLoading(true)
+    fetch('/api/expenses?groupId=' + selectedGroupId, {signal:controller.signal})
+      .then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.message); return data })
+      .then(data => { if (!controller.signal.aborted) setExpenses(data.expenses.map(expenseView)) })
+      .catch(err => { if (!controller.signal.aborted) setError(err.message || 'Could not load expenses.') })
+      .finally(() => { if (!controller.signal.aborted) setExpenseLoading(false) })
+    return () => controller.abort()
+  }, [selectedGroupId, expenseReload])
+
+  function expenseView(e) {
+    return {...e,total:e.amount,icon:e.category.toLowerCase(),dateLabel:'',direction:'expense total',userAmount:e.amount}
+  }
+  const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
+
+  const handleAddExpense = async event => {
+    event.preventDefault()
+    if (expensePending.current || !selectedGroupId) return
+    expensePending.current = true
+    setSavingExpense(true)
+    setError('')
+    try {
+      const res = await fetch('/api/expenses', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,groupId:selectedGroupId})})
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Could not save expense.')
+      setExpenseReload(n => n + 1)
+      setShowAdd(false)
+      setForm({description:'',amount:'',category:'Groceries',payer:''})
+    } catch(err) { setError(err.message) }
+    finally { expensePending.current = false; setSavingExpense(false) }
+  }
+  const handleDeleteExpense = async id => {
+    try {
+      const res = await fetch('/api/expenses/'+id+'?groupId='+selectedGroupId,{method:'DELETE'})
+      if (!res.ok) throw new Error('Could not delete expense.')
+      setExpenseReload(n => n + 1)
+    } catch(err) { setError(err.message) }
   }
   return (
     <div className="dashboard-page">
@@ -268,7 +289,7 @@ export default function Dashboard({ username, onLogout }) {
               <button className="dashboard-action" type="button" disabled aria-describedby="dashboard-actions-note">
                 <DashboardIcon name="balances" />Settle up
               </button>
-              <button className="dashboard-action dashboard-action-primary" type="button" onClick={() => setShowAdd(true)}>
+              <button className="dashboard-action dashboard-action-primary" type="button" disabled={!selectedGroupId || savingExpense} onClick={() => setShowAdd(true)}>
                 <DashboardIcon name="plus" />Add expense
               </button>
               <span className="dashboard-actions-note" id="dashboard-actions-note">Settle up coming soon.</span>
@@ -291,6 +312,9 @@ export default function Dashboard({ username, onLogout }) {
                 View all<DashboardIcon name="arrow" /><span className="dashboard-soon">Soon</span>
               </button>
             </div>
+            {error && <p role="alert">{error} <button onClick={() => setExpenseReload(n => n + 1)}>Retry</button></p>}
+            {expenseLoading && <p role="status">Loading expenses…</p>}
+            {!expenseLoading && !error && !expenses.length && <p>{selectedGroupId ? 'No expenses in this group yet.' : 'Create or join a group to add expenses.'}</p>}
             <ul className="dashboard-expense-list">
               {expenses.map(expense => (
                 <li className="dashboard-expense-row" key={expense.id}>
@@ -301,7 +325,7 @@ export default function Dashboard({ username, onLogout }) {
                   </div>
                   <span className="dashboard-expense-date">{expense.dateLabel}</span>
                   <div className={`dashboard-expense-share${expense.direction === 'lent' ? ' dashboard-share-lent' : ''}`}>
-                    <span>you {expense.direction}</span>
+                    <span>Expense total</span>
                     <strong>{formatUSD(expense.userAmount)}</strong>
                   </div>
                   <button
@@ -336,7 +360,7 @@ export default function Dashboard({ username, onLogout }) {
               <input placeholder="Payer (e.g. You)" required value={form.payer} onChange={e => setForm({ ...form, payer: e.target.value })} />
               <div className="modal-actions">
                 <button className="dashboard-action" type="button" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button className="dashboard-action dashboard-action-primary" type="submit">Save</button>
+                <button className="dashboard-action dashboard-action-primary" type="submit" disabled={savingExpense}>{savingExpense ? "Saving…" : "Save"}</button>
               </div>
             </form>
           </div>
@@ -347,11 +371,16 @@ export default function Dashboard({ username, onLogout }) {
           ref={node => { if (node && !node.open) node.showModal() }}
           onCancel={() => setShowGroupOptions(false)}>
           <h2 id="group-options-title">Add a group</h2>
-          <p id="join-coming-soon">Joining by invite code is coming soon.</p>
-          <div className="modal-actions">
-            <button className="dashboard-action" type="button" disabled aria-describedby="join-coming-soon">
-              Join group
+          <form onSubmit={joinGroup}>
+            <label htmlFor="join-code">Invite code</label>
+            <input id="join-code" value={joinCode} maxLength={6} required disabled={joining}
+              onChange={event => setJoinCode(event.target.value)} />
+            {joinError && <p role="alert">{joinError}</p>}
+            <button className="dashboard-action" disabled={joining || !/^[A-Z0-9]{6}$/i.test(joinCode.trim())}>
+              {joining ? 'Joining…' : 'Join group'}
             </button>
+          </form>
+          <div className="modal-actions">
             <button className="dashboard-action dashboard-action-primary" type="button"
               onClick={() => {
                 setShowGroupOptions(false)
@@ -375,7 +404,7 @@ export default function Dashboard({ username, onLogout }) {
               <h2 id="create-group-title" tabIndex={-1} ref={groupSuccessHeading}>Group created</h2>
               <p><strong>{createdGroup.name}</strong></p>
               <p>Invite code: <code>{createdGroup.invite_code}</code></p>
-              <p>Joining by invite code is coming soon.</p>
+              <p>Share this code with your roommates so they can join.</p>
               {copyNotice && <p role="status">{copyNotice}</p>}
               <div className="modal-actions">
                 <button className="dashboard-action" type="button" onClick={copyInviteCode}>Copy code</button>
