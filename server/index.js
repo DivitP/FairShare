@@ -1,6 +1,6 @@
+const { normalizeGroupName, createGroup } = require('./groups')
 const express = require('express')
 const cors = require('cors')
-const crypto = require('crypto')
 const { Pool } = require('pg')
 
 const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
@@ -16,18 +16,6 @@ const pool = new Pool({
 })
 
 registerSessionRoutes(app, pool)
-
-function createInviteCode(){
-  const possibleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  const codelength = 6;
-  let code = '';
-  for (let i = 0; i < codelength; i++)
-  {
-    const index = crypto.randomInt(possibleChars.length)
-    code += possibleChars[index]
-  }
-  return code;
-}
 
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body || {}
@@ -92,32 +80,21 @@ app.post('/api/expenses', requireSession(pool), async (req, res) => {
 })
 
 app.post('/api/groups', requireSession(pool), async (req, res) => {
-  const { name } = req.body || {}
+  const name = normalizeGroupName(req.body?.name)
+  if (!name) {
+    return res.status(400).json({ success: false, message: 'Group name must be between 1 and 100 characters.' })
+  }
 
   try {
-    const {rows} = await pool.query(
-      `INSERT INTO roommate_groups (name, invite_code, created_by)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, invite_code, created_by`,
-      [name, createInviteCode(), req.user.id]
-    )
-    const group = rows[0];
-    await pool.query(
-      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
-      [group.id, group.created_by]
-    )
-
-    res.json({
-      success: true,
-      group: { id: group.id, name: group.name, invite_code: group.invite_code }
-    })
+    const group = await createGroup(pool, name, req.user.id)
+    res.json({ success: true, group })
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Database error' })
+    if (err.code === 'INVITE_CODE_EXHAUSTED') {
+      return res.status(503).json({ success: false, message: 'Could not generate an invite code. Please try again.' })
+    }
+    res.status(500).json({ success: false, message: 'Could not create group. Please try again.' })
   }
-}
-)
-
-
+})
 
 app.delete('/api/expenses/:id', requireSession(pool), async (req, res) => {
   await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id])
