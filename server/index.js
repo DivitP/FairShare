@@ -64,6 +64,23 @@ app.post('/api/login', async (req, res) => {
   }
 })
 
+app.post('/api/groups', requireSession(pool), async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : ''
+  if (!name || name.length > 100) {
+    return res.status(400).json({ message: 'Use a group name between 1 and 100 characters.' })
+  }
+  const { rows } = await pool.query(
+    `WITH created AS (
+       INSERT INTO roommate_groups (name, created_by) VALUES ($1, $2) RETURNING id, name
+     ), membership AS (
+       INSERT INTO group_members (group_id, user_id) SELECT id, $2 FROM created
+     )
+     SELECT id, name FROM created`,
+    [name, req.user.id]
+  )
+  res.status(201).json({ group: rows[0] })
+})
+
 app.get('/api/expenses', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM expenses ORDER BY id DESC')
   res.json({ expenses: rows })
@@ -95,6 +112,15 @@ const PORT = process.env.PORT || 5001
 async function start() {
   await initializeUsers(pool)
   await initializeSessions(pool)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS roommate_groups (
+      id SERIAL PRIMARY KEY, name TEXT NOT NULL, created_by INTEGER NOT NULL REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id INTEGER REFERENCES roommate_groups(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      PRIMARY KEY (group_id, user_id)
+    )`)
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
 }
 
