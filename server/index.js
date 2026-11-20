@@ -3,6 +3,8 @@ const cors = require('cors')
 const { Pool } = require('pg')
 
 const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
+const { initializeSessions, issueSession, registerSessionRoutes, requireSession } = require('./sessions')
+
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -20,6 +22,8 @@ pool.query(`
     payer TEXT
   )
 `).catch(err => console.error('DB error:', err.message))
+
+registerSessionRoutes(app, pool)
 
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body
@@ -45,6 +49,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid username or password' })
     }
 
+    await issueSession(pool, req, res, rows[0].id)
     res.json({ success: true, message: 'Logged in successfully!', username: rows[0].username })
   } catch (err) {
     res.status(500).json({ success: false, message: 'Database error' })
@@ -81,7 +86,12 @@ app.delete('/api/expenses/:id', async (req, res) => {
 const PORT = process.env.PORT || 5001
 async function start() {
   await initializeUsers(pool)
+  await initializeSessions(pool)
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
 }
 
-start().catch(err => { console.error(err); process.exitCode = 1 })
+start().catch(async err => {
+  console.error('Database initialization failed:', err.code || err.name)
+  await pool.end()
+  process.exitCode = 1
+})
