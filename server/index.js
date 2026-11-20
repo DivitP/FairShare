@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const { Pool } = require('pg')
 
+const { hashPassword, verifyPassword, initializeUsers } = require('./passwords')
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -9,14 +10,6 @@ app.use(express.json())
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/fairshare'
 })
-
-pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE,
-    password TEXT
-  )
-`).catch(err => console.error('DB error:', err.message))
 
 pool.query(`
   CREATE TABLE IF NOT EXISTS expenses (
@@ -32,7 +25,7 @@ app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body
 
   try {
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password])
+    await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, await hashPassword(password)])
     res.json({ success: true, message: 'Account created successfully!' })
   } catch (err) {
     res.status(400).json({ success: false, message: 'Username already taken' })
@@ -44,11 +37,11 @@ app.post('/api/login', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM users WHERE username = $1 AND password = $2',
-      [username, password]
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      [username]
     )
 
-    if (rows.length === 0) {
+    if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) {
       return res.status(400).json({ success: false, message: 'Invalid username or password' })
     }
 
@@ -86,4 +79,9 @@ app.delete('/api/expenses/:id', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 5001
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+async function start() {
+  await initializeUsers(pool)
+  app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+}
+
+start().catch(err => { console.error(err); process.exitCode = 1 })
