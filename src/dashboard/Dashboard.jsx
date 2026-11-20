@@ -14,6 +14,33 @@ const navigationItems = [
 ]
 
 export default function Dashboard({ username, onLogout }) {
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [groupNotice, setGroupNotice] = useState('')
+
+  async function createGroup(event) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const name = form.elements.groupName.value.trim()
+    if (!name || creatingGroup) return
+    setCreatingGroup(true)
+    setGroupNotice('')
+    try {
+      const response = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message)
+      form.reset()
+      setGroupNotice('Created ' + data.group.name + '.')
+    } catch (err) {
+      setGroupNotice(err.message || 'Could not create group.')
+    } finally {
+      setCreatingGroup(false)
+    }
+  }
+
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ description: '', amount: '', category: 'Groceries', payer: '' })
   const [error, setError] = useState('')
@@ -114,9 +141,12 @@ export default function Dashboard({ username, onLogout }) {
         <section className="dashboard-groups" aria-labelledby="groups-label">
           <div className="dashboard-groups-heading">
             <h2 className="dashboard-section-label" id="groups-label">Your groups</h2>
-            <button className="dashboard-add-group" type="button" disabled
-              aria-label="Add group (coming soon)" title="Add group — coming soon">+</button>
           </div>
+          <form onSubmit={createGroup}>
+            <label>Group name <input name="groupName" maxLength={100} required /></label>
+            <button disabled={creatingGroup}>{creatingGroup ? 'Creating…' : 'Create group'}</button>
+          </form>
+          {groupNotice && <p role="status">{groupNotice}</p>}
           <div className="dashboard-group-entry">
             <span className="dashboard-group-dot" aria-hidden="true" />
             <span>Dorm 777</span>
