@@ -2,7 +2,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "test": "node --test src/dashboard/balance.test.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

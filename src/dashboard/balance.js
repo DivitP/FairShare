@@ -6,7 +6,7 @@ export function calculateBalances(expenses, roommates) {
 
   for (const expense of expenses) {
     const amount = expense.amount || expense.total || 0
-    const splitShare = Math.round(amount / roommates.length)
+    const splitShare = Math.round(amount / (roommates.length || 1))
 
     if (balances[expense.payer]) {
       balances[expense.payer].paid += amount

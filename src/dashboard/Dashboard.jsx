@@ -3,6 +3,7 @@ import './Dashboard.css'
 import DashboardIcon from './DashboardIcon'
 import SummaryCard from './SummaryCard'
 import { formatUSD } from './dashboardPreviewData'
+import { calculateBalances } from './balance'
 
 const navigationItems = [
   { label: 'Overview', icon: 'overview' },
@@ -26,38 +27,43 @@ export default function Dashboard({ username, onLogout }) {
         ...e,
         total: e.amount,
         icon: (e.category || 'household').toLowerCase(),
-        dateLabel: 'Today',
-        direction: 'lent',
-        userAmount: e.amount
+        dateLabel: 'Today'
       }))))
       .catch(() => {})
   }, [])
 
-  const totalCents = expenses.reduce((sum, e) => sum + (e.total || 0), 0)
+  const defaultRoommates = [username, 'Maya', 'Jordan'].filter(Boolean)
+  const roommates = Array.from(new Set([
+    ...defaultRoommates,
+    ...expenses.map(e => e.payer)
+  ])).filter(Boolean)
+
+  const balances = calculateBalances(expenses, roommates)
+  const myBalance = balances[username]?.net || 0
 
   const handleAddExpense = async (e) => {
     e.preventDefault()
     const cents = Math.round(Number(form.amount) * 100)
-    if (!form.description || !form.payer || !form.category || isNaN(cents) || cents <= 0) {
+    const payer = form.payer.trim() || username
+    if (!form.description || !payer || !form.category || isNaN(cents) || cents <= 0) {
       return setError('Please fill in all fields with a valid amount.')
     }
     const res = await fetch('/api/expenses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
+      body: JSON.stringify({ ...form, payer })
     })
     const data = await res.json()
     if (!res.ok) return setError(data.message || 'Error saving expense')
     const item = {
-      id: `exp-${Date.now()}`,
+      id: data.expense?.id || `exp-${Date.now()}`,
       description: form.description,
-      payer: form.payer,
+      payer,
       total: cents,
+      amount: cents,
       category: form.category,
       icon: form.category.toLowerCase(),
-      dateLabel: 'Today',
-      direction: form.payer.toLowerCase() === 'you' ? 'lent' : 'borrowed',
-      userAmount: Math.round(cents / 3)
+      dateLabel: 'Today'
     }
     setExpenses([item, ...expenses])
     setShowAdd(false)
@@ -153,12 +159,12 @@ export default function Dashboard({ username, onLogout }) {
           </section>
 
           <section className="dashboard-summary-grid" aria-label="Balance summaries">
-            <SummaryCard label="Your total balance" amount={totalCents}
-              description="" icon="balances" variant="navy" />
-            <SummaryCard label="You are owed" amount={totalCents}
-              description="" icon="up" variant="blue" />
-            <SummaryCard label="You owe" amount={0}
-              description="" icon="arrow" />
+            <SummaryCard label="Your total balance" amount={Math.abs(myBalance)}
+              description={myBalance >= 0 ? "You're owed overall" : "You owe overall"} icon="balances" variant="navy" />
+            <SummaryCard label="You are owed" amount={myBalance > 0 ? myBalance : 0}
+              description="To collect from roommates" icon="up" variant="blue" />
+            <SummaryCard label="You owe" amount={myBalance < 0 ? Math.abs(myBalance) : 0}
+              description={myBalance >= 0 ? "You're all settled up" : "To pay back"} icon="arrow" />
           </section>
 
           <section className="dashboard-expenses" aria-labelledby="recent-expenses-heading">
@@ -169,28 +175,36 @@ export default function Dashboard({ username, onLogout }) {
               </button>
             </div>
             <ul className="dashboard-expense-list">
-              {expenses.map(expense => (
-                <li className="dashboard-expense-row" key={expense.id}>
-                  <span className={`dashboard-category-icon dashboard-category-${expense.icon}`}><DashboardIcon name={expense.icon} /></span>
-                  <div className="dashboard-expense-copy">
-                    <h3>{expense.description}</h3>
-                    <p>{expense.payer} paid {formatUSD(expense.total)} <span aria-hidden="true">·</span> {expense.category}</p>
-                  </div>
-                  <span className="dashboard-expense-date">{expense.dateLabel}</span>
-                  <div className={`dashboard-expense-share${expense.direction === 'lent' ? ' dashboard-share-lent' : ''}`}>
-                    <span>you {expense.direction}</span>
-                    <strong>{formatUSD(expense.userAmount)}</strong>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteExpense(expense.id)}
-                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px 8px', fontSize: '15px' }}
-                    title="Delete expense"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
+              {expenses.map(expense => {
+                const isPayer = expense.payer === username
+                const totalAmount = expense.total || expense.amount || 0
+                const splitShare = Math.round(totalAmount / (roommates.length || 1))
+                const direction = isPayer ? 'lent' : 'borrowed'
+                const userAmount = isPayer ? totalAmount - splitShare : splitShare
+
+                return (
+                  <li className="dashboard-expense-row" key={expense.id}>
+                    <span className={`dashboard-category-icon dashboard-category-${expense.icon}`}><DashboardIcon name={expense.icon} /></span>
+                    <div className="dashboard-expense-copy">
+                      <h3>{expense.description}</h3>
+                      <p>{expense.payer} paid {formatUSD(totalAmount)} <span aria-hidden="true">·</span> {expense.category}</p>
+                    </div>
+                    <span className="dashboard-expense-date">{expense.dateLabel}</span>
+                    <div className={`dashboard-expense-share${direction === 'lent' ? ' dashboard-share-lent' : ''}`}>
+                      <span>you {direction}</span>
+                      <strong>{formatUSD(userAmount)}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteExpense(expense.id)}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px 8px', fontSize: '15px' }}
+                      title="Delete expense"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </section>
         </div>
@@ -210,7 +224,7 @@ export default function Dashboard({ username, onLogout }) {
                 <option value="Dining">Dining</option>
                 <option value="Household">Household</option>
               </select>
-              <input placeholder="Payer (e.g. You)" required value={form.payer} onChange={e => setForm({ ...form, payer: e.target.value })} />
+              <input placeholder={`Payer (default: ${username})`} value={form.payer} onChange={e => setForm({ ...form, payer: e.target.value })} />
               <div className="modal-actions">
                 <button className="dashboard-action" type="button" onClick={() => setShowAdd(false)}>Cancel</button>
                 <button className="dashboard-action dashboard-action-primary" type="submit">Save</button>
